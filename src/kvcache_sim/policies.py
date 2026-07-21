@@ -1,20 +1,6 @@
-"""Eviction policies.
-
-The cache is a prefix trie: a block only produces hits while its entire
-prefix is cached, so eviction must always remove leaves (blocks with no
-cached children). Hit accounting matches the KVCache.AI simulator: only the
-longest continuous cached prefix of each request counts, and hit rate is
-measured over the post-warmup window. A capacity that never fills before the
-measurement window is reported as underfilled.
-
-To add your own policy: copy simulate_custom, change the SCORING hooks, and
-register it in POLICIES at the bottom.
-
-Adapted from kvcache-ai/kvcache-blog packages/kvcache-simulator (Apache-2.0).
-"""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 import heapq
 
 from .plan import ExecutionPlan
@@ -23,20 +9,40 @@ from .plan import ExecutionPlan
 @dataclass
 class PolicyResult:
     policy: str
-    capacity: int
-    hit_tokens: int
-    total_tokens: int
-    hit_rate: float
-    underfilled: bool = False
+    cacheBlocks: int
+    warmupRequests: int
+    measurementStartRequest: int | None
+    measurementMode: str
+    hitTokens: int
+    totalTokens: int
+    hitRate: float
+
+    def to_json(self) -> dict[str, int | float | str | None]:
+        return asdict(self)
 
 
-def _finish(policy: str, capacity: int, hit_tokens: int, total_tokens: int, underfilled: bool = False) -> PolicyResult:
-    rate = (hit_tokens / total_tokens) if total_tokens else 0.0
-    return PolicyResult(policy, capacity, hit_tokens, total_tokens, rate, underfilled)
+def _finish(policy: str, capacity: int, plan: ExecutionPlan, hit_tokens: int, total_tokens: int, mode: str = "fixed_window") -> PolicyResult:
+    return PolicyResult(
+        policy=policy,
+        cacheBlocks=capacity,
+        warmupRequests=plan.warmup_requests,
+        measurementStartRequest=plan.warmup_requests if mode == "fixed_window" else None,
+        measurementMode=mode,
+        hitTokens=hit_tokens,
+        totalTokens=total_tokens,
+        hitRate=(hit_tokens / total_tokens) if total_tokens else 0.0,
+    )
+
+
+def _no_cache(policy: str, capacity: int, plan: ExecutionPlan) -> PolicyResult:
+    return _finish(policy, capacity, plan, 0, plan.total_measured_tokens, "fixed_window")
+
+
+def _underfilled(policy: str, capacity: int, plan: ExecutionPlan) -> PolicyResult:
+    return _finish(policy, capacity, plan, 0, plan.total_measured_tokens, "underfilled_at_window")
 
 
 def simulate_ceiling(plan: ExecutionPlan) -> PolicyResult:
-    """Hit rate with infinite capacity: the best any policy can do."""
     seen = bytearray(len(plan.parent))
     hit_tokens = 0
     total_tokens = 0
@@ -56,23 +62,23 @@ def simulate_ceiling(plan: ExecutionPlan) -> PolicyResult:
                 prefix_alive = False
         for index in range(start, end):
             seen[plan.node_for_event[index]] = 1
-    return _finish("ceiling", max(plan.unique_blocks, 1), hit_tokens, total_tokens)
+    return _finish("ceiling", max(plan.unique_blocks, 1), plan, hit_tokens, total_tokens)
 
 
 def simulate_fifo(plan: ExecutionPlan, capacity: int) -> PolicyResult:
     if capacity <= 0 or not plan.ids:
-        return _finish("fifo", capacity, 0, plan.total_measured_tokens)
+        return _no_cache("fifo", capacity, plan)
     in_cache = bytearray(len(plan.parent))
     queue: list[int] = []
     head = 0
     cache_size = 0
-    filled_in_warmup = False
+    full_before_measurement = False
     hit_tokens = 0
     total_tokens = 0
 
     for request_index in range(plan.request_count):
-        if request_index >= plan.warmup_requests and not filled_in_warmup:
-            return _finish("fifo", capacity, 0, plan.total_measured_tokens, underfilled=True)
+        if request_index >= plan.warmup_requests and not full_before_measurement:
+            return _underfilled("fifo", capacity, plan)
         start = plan.request_starts[request_index]
         end = plan.request_starts[request_index + 1]
         measured = request_index >= plan.warmup_requests
@@ -103,16 +109,17 @@ def simulate_fifo(plan: ExecutionPlan, capacity: int) -> PolicyResult:
                 cache_size += 1
                 queue.append(node)
                 if cache_size >= capacity and request_index < plan.warmup_requests:
-                    filled_in_warmup = True
+                    full_before_measurement = True
+            if head > 1_000_000 and head * 2 > len(queue):
+                del queue[:head]
+                head = 0
 
-    if not filled_in_warmup or total_tokens <= 0:
-        return _finish("fifo", capacity, 0, plan.total_measured_tokens, underfilled=True)
-    return _finish("fifo", capacity, hit_tokens, total_tokens)
+    if not full_before_measurement or total_tokens <= 0:
+        return _underfilled("fifo", capacity, plan)
+    return _finish("fifo", capacity, plan, hit_tokens, total_tokens)
 
 
 class _LeafHeap:
-    """Heap of eviction candidates with lazy invalidation via versions."""
-
     def __init__(self, max_heap: bool) -> None:
         self.max_heap = max_heap
         self.items: list[tuple[int, int, int, int]] = []
@@ -133,11 +140,9 @@ class _LeafHeap:
 
 
 def simulate_trie_policy(plan: ExecutionPlan, capacity: int, *, optimal: bool) -> PolicyResult:
-    """LRU (evict least-recently-touched leaf) or Belady-style optimal
-    (evict the leaf whose next reuse is farthest in the future)."""
     policy = "optimal" if optimal else "lru"
     if capacity <= 0 or not plan.ids:
-        return _finish(policy, capacity, 0, plan.total_measured_tokens)
+        return _no_cache(policy, capacity, plan)
 
     node_count = len(plan.parent)
     present = bytearray(node_count)
@@ -150,7 +155,7 @@ def simulate_trie_policy(plan: ExecutionPlan, capacity: int, *, optimal: bool) -
     cache_size = 0
     clock = 0
     mark_value = 1
-    filled_in_warmup = False
+    full_before_measurement = False
     hit_tokens = 0
     total_tokens = 0
 
@@ -160,16 +165,34 @@ def simulate_trie_policy(plan: ExecutionPlan, capacity: int, *, optimal: bool) -
         state_version[node] += 1
         heap.push(node, state_key[node], state_version[node])
 
-    def touch(node: int, event_index: int) -> None:
+    def touch_lru(node: int) -> None:
         nonlocal clock
         if node == 0 or not present[node]:
             return
-        if optimal:
-            state_key[node] = plan.next_request_for_event[event_index]
-        else:
-            clock += 1
-            state_key[node] = clock
+        clock += 1
+        state_key[node] = clock
         push_leaf(node)
+
+    def update_optimal(node: int, next_use: int) -> None:
+        if node == 0 or not present[node]:
+            return
+        state_key[node] = next_use
+        push_leaf(node)
+
+    def add_node(node: int, event_index: int) -> None:
+        nonlocal cache_size
+        parent = plan.parent[node]
+        present[node] = 1
+        cache_size += 1
+        child_count[parent] += 1
+        if optimal:
+            update_optimal(node, plan.next_request_for_event[event_index])
+        else:
+            touch_lru(node)
+
+    def restore(skipped: list[tuple[int, int, int]]) -> None:
+        for node, key, version in skipped:
+            heap.push(node, key, version)
 
     def evict_leaf(candidate_key: int) -> bool:
         nonlocal cache_size
@@ -177,8 +200,7 @@ def simulate_trie_policy(plan: ExecutionPlan, capacity: int, *, optimal: bool) -
         while True:
             top = heap.pop()
             if top is None:
-                for item in skipped:
-                    heap.push(*item)
+                restore(skipped)
                 return False
             node, key, version = top
             if not present[node] or child_count[node] != 0 or state_version[node] != version or state_key[node] != key:
@@ -188,8 +210,7 @@ def simulate_trie_policy(plan: ExecutionPlan, capacity: int, *, optimal: bool) -
                 continue
             if optimal and key <= candidate_key:
                 heap.push(node, key, version)
-                for item in skipped:
-                    heap.push(*item)
+                restore(skipped)
                 return False
             present[node] = 0
             cache_size -= 1
@@ -197,8 +218,7 @@ def simulate_trie_policy(plan: ExecutionPlan, capacity: int, *, optimal: bool) -
             child_count[parent] -= 1
             if parent > 0 and present[parent] and child_count[parent] == 0:
                 push_leaf(parent)
-            for item in skipped:
-                heap.push(*item)
+            restore(skipped)
             return True
 
     def mark_protected_path(start: int, end: int) -> None:
@@ -214,8 +234,8 @@ def simulate_trie_policy(plan: ExecutionPlan, capacity: int, *, optimal: bool) -
                 protected_mark[node] = mark_value
 
     for request_index in range(plan.request_count):
-        if request_index >= plan.warmup_requests and not filled_in_warmup:
-            return _finish(policy, capacity, 0, plan.total_measured_tokens, underfilled=True)
+        if request_index >= plan.warmup_requests and not full_before_measurement:
+            return _underfilled(policy, capacity, plan)
         start = plan.request_starts[request_index]
         end = plan.request_starts[request_index + 1]
         measured = request_index >= plan.warmup_requests
@@ -228,7 +248,10 @@ def simulate_trie_policy(plan: ExecutionPlan, capacity: int, *, optimal: bool) -
                 if prefix_alive and hit:
                     hit_tokens += plan.tokens[index]
             if prefix_alive and hit:
-                touch(node, index)
+                if optimal:
+                    update_optimal(node, plan.next_request_for_event[index])
+                else:
+                    touch_lru(node)
             elif not hit:
                 prefix_alive = False
 
@@ -242,39 +265,32 @@ def simulate_trie_policy(plan: ExecutionPlan, capacity: int, *, optimal: bool) -
                 if not evict_leaf(candidate_key):
                     break
             if cache_size < capacity and present[plan.parent[node]]:
-                parent = plan.parent[node]
-                present[node] = 1
-                cache_size += 1
-                child_count[parent] += 1
-                touch(node, index)
+                add_node(node, index)
                 if cache_size >= capacity and request_index < plan.warmup_requests:
-                    filled_in_warmup = True
+                    full_before_measurement = True
             else:
                 break
 
-    if not filled_in_warmup or total_tokens <= 0:
-        return _finish(policy, capacity, 0, plan.total_measured_tokens, underfilled=True)
-    return _finish(policy, capacity, hit_tokens, total_tokens)
+    if not full_before_measurement or total_tokens <= 0:
+        return _underfilled(policy, capacity, plan)
+    return _finish(policy, capacity, plan, hit_tokens, total_tokens)
 
 
 def simulate_custom(plan: ExecutionPlan, capacity: int) -> PolicyResult:
-    """Your eviction policy goes here.
+    """User-defined eviction policy template.
 
-    All the trie bookkeeping (leaf-only eviction, prefix hit accounting,
-    warmup/underfilled semantics) is handled; change only the SCORING hooks.
-    The cached leaf with the SMALLEST score is evicted first.
+    The cache is a prefix trie: a block is only usable while its entire prefix
+    is cached, so eviction must always remove leaves (blocks with no cached
+    children). This function keeps all of that bookkeeping intact; to try a new
+    algorithm you only change the three SCORING hooks below. The leaf with the
+    SMALLEST score is evicted first.
 
-    As shipped, the scoring implements LFU: evict the least-frequently-used
-    leaf, breaking ties toward the least recently used one.
-
-    Signals you can use inside the hooks:
-      - plan.tokens[event_index]: token weight of the block
-      - plan.next_request_for_event[event_index]: next request reusing it
-      - plan.parent[node]: walk toward the root for depth-based scores
+    As shipped, the scoring implements LFU (evict the least-frequently-used
+    leaf, oldest access breaking ties).
     """
     policy = "custom"
     if capacity <= 0 or not plan.ids:
-        return _finish(policy, capacity, 0, plan.total_measured_tokens)
+        return _no_cache(policy, capacity, plan)
 
     node_count = len(plan.parent)
     present = bytearray(node_count)
@@ -287,22 +303,22 @@ def simulate_custom(plan: ExecutionPlan, capacity: int) -> PolicyResult:
     cache_size = 0
     clock = 0
     mark_value = 1
-    filled_in_warmup = False
+    full_before_measurement = False
     hit_tokens = 0
     total_tokens = 0
 
-    # ---- SCORING (edit this section) -------------------------------------
+    # ---- SCORING state (edit freely) -------------------------------------
     frequency = [0] * node_count
 
-    def _pack(freq: int, tick: int) -> int:
-        # Primary key: frequency. Tie-break: LRU order via the shared clock.
-        return freq * (1 << 40) + tick
-
     def score_on_insert(node: int, event_index: int) -> int:
+        # Called when a block enters the cache. Return its eviction score.
+        # plan.tokens[event_index] and plan.next_request_for_event[event_index]
+        # are available if your policy wants size- or clairvoyance-based keys.
         frequency[node] = 1
         return _pack(frequency[node], clock)
 
-    def score_on_hit(node: int, event_index: int) -> int:
+    def score_on_hit(node: int) -> int:
+        # Called when a cached block is reused on a request's live prefix.
         frequency[node] += 1
         return _pack(frequency[node], clock)
 
@@ -310,6 +326,10 @@ def simulate_custom(plan: ExecutionPlan, capacity: int) -> PolicyResult:
         # Called when a node's last cached child was evicted, making it an
         # eviction candidate again.
         return _pack(frequency[node], clock)
+
+    def _pack(freq: int, tick: int) -> int:
+        # Primary key: frequency. Tie-break: LRU order via the shared clock.
+        return freq * (1 << 40) + tick
     # ----------------------------------------------------------------------
 
     def push_leaf(node: int, key: int) -> None:
@@ -357,8 +377,8 @@ def simulate_custom(plan: ExecutionPlan, capacity: int) -> PolicyResult:
                 protected_mark[node] = mark_value
 
     for request_index in range(plan.request_count):
-        if request_index >= plan.warmup_requests and not filled_in_warmup:
-            return _finish(policy, capacity, 0, plan.total_measured_tokens, underfilled=True)
+        if request_index >= plan.warmup_requests and not full_before_measurement:
+            return _underfilled(policy, capacity, plan)
         start = plan.request_starts[request_index]
         end = plan.request_starts[request_index + 1]
         measured = request_index >= plan.warmup_requests
@@ -372,7 +392,7 @@ def simulate_custom(plan: ExecutionPlan, capacity: int) -> PolicyResult:
                     hit_tokens += plan.tokens[index]
             if prefix_alive and hit:
                 clock += 1
-                push_leaf(node, score_on_hit(node, index))
+                push_leaf(node, score_on_hit(node))
             elif not hit:
                 prefix_alive = False
 
@@ -391,24 +411,22 @@ def simulate_custom(plan: ExecutionPlan, capacity: int) -> PolicyResult:
                 clock += 1
                 push_leaf(node, score_on_insert(node, index))
                 if cache_size >= capacity and request_index < plan.warmup_requests:
-                    filled_in_warmup = True
+                    full_before_measurement = True
             else:
                 break
 
-    if not filled_in_warmup or total_tokens <= 0:
-        return _finish(policy, capacity, 0, plan.total_measured_tokens, underfilled=True)
-    return _finish(policy, capacity, hit_tokens, total_tokens)
-
-
-POLICIES = {
-    "fifo": simulate_fifo,
-    "lru": lambda plan, capacity: simulate_trie_policy(plan, capacity, optimal=False),
-    "optimal": lambda plan, capacity: simulate_trie_policy(plan, capacity, optimal=True),
-    "custom": simulate_custom,
-}
+    if not full_before_measurement or total_tokens <= 0:
+        return _underfilled(policy, capacity, plan)
+    return _finish(policy, capacity, plan, hit_tokens, total_tokens)
 
 
 def simulate_policy(plan: ExecutionPlan, policy: str, capacity: int) -> PolicyResult:
-    if policy not in POLICIES:
-        raise ValueError(f"Unknown policy: {policy} (known: {', '.join(POLICIES)})")
-    return POLICIES[policy](plan, capacity)
+    if policy == "fifo":
+        return simulate_fifo(plan, capacity)
+    if policy == "lru":
+        return simulate_trie_policy(plan, capacity, optimal=False)
+    if policy == "optimal":
+        return simulate_trie_policy(plan, capacity, optimal=True)
+    if policy == "custom":
+        return simulate_custom(plan, capacity)
+    raise ValueError(f"Unsupported policy: {policy}")

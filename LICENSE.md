@@ -1,11 +1,3 @@
-# Third-party notices
-
-`intellikv/trace.py`, `intellikv/plan.py`, and `intellikv/policies.py` are adapted from the
-[kvcache-simulator](https://github.com/kvcache-ai/kvcache-blog/tree/main/packages/kvcache-simulator)
-package by KVCache.AI, licensed under Apache-2.0. The original license follows.
-
----
-
 Apache License
 Version 2.0, January 2004
 http://www.apache.org/licenses/

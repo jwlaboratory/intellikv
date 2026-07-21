@@ -1,10 +1,3 @@
-"""Build the prefix-trie execution plan replayed by every policy.
-
-Each block event maps to a trie node keyed by (parent node, block id), so two
-requests share cache state exactly as far as their prefixes match.
-
-Adapted from kvcache-ai/kvcache-blog packages/kvcache-simulator (Apache-2.0).
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -18,13 +11,17 @@ class ExecutionPlan:
     ids: list[int]
     tokens: list[int]
     request_starts: list[int]
-    node_for_event: list[int]           # trie node of each block event
-    next_request_for_event: list[int]   # next request index that reuses the node (for optimal)
-    parent: list[int]                   # trie parent of each node; node 0 is the root
+    node_for_event: list[int]
+    next_request_for_event: list[int]
+    parent: list[int]
+    block_size: int
     request_count: int
+    unique_raw_blocks: int
     unique_blocks: int
     warmup_requests: int
     total_measured_tokens: int
+    total_input_tokens: int
+    average_input_tokens: float
 
 
 def build_execution_plan(trace: TraceData, warmup_fraction: float = 0.5) -> ExecutionPlan:
@@ -46,9 +43,9 @@ def build_execution_plan(trace: TraceData, warmup_fraction: float = 0.5) -> Exec
             node_for_event[index] = node
             parent_node = node
 
-    never = trace.request_count + 1
-    next_request_for_event = [never] * len(trace.ids)
-    last_use = [never] * len(parent)
+    never_request = trace.request_count + 1
+    next_request_for_event = [never_request] * len(trace.ids)
+    last_use = [never_request] * len(parent)
     for request_index in range(trace.request_count - 1, -1, -1):
         start = trace.request_starts[request_index]
         end = trace.request_starts[request_index + 1]
@@ -70,8 +67,12 @@ def build_execution_plan(trace: TraceData, warmup_fraction: float = 0.5) -> Exec
         node_for_event=node_for_event,
         next_request_for_event=next_request_for_event,
         parent=parent,
+        block_size=trace.block_size,
         request_count=trace.request_count,
+        unique_raw_blocks=trace.unique_raw_blocks,
         unique_blocks=max(0, len(parent) - 1),
         warmup_requests=warmup_requests,
         total_measured_tokens=total_measured_tokens,
+        total_input_tokens=trace.total_input_tokens,
+        average_input_tokens=trace.average_input_tokens,
     )
