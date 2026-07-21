@@ -1,42 +1,54 @@
 # IntelliKV
 
-The [KVCache.AI hit-rate simulator](https://kvcache.ai/tools/kv-cache-hit-rate-simulator/)
+A fork of the [KVCache.AI hit-rate simulator](https://kvcache.ai/tools/kv-cache-hit-rate-simulator/)
 (`kvcache-simulator`, vendored from
 [kvcache-ai/kvcache-blog](https://github.com/kvcache-ai/kvcache-blog/tree/main/packages/kvcache-simulator),
-Apache-2.0 — see `LICENSE.md`), patched to support **custom eviction
-policies** so you can plug in your own algorithm and benchmark it against
-FIFO / LRU / Optimal on real or synthetic traces.
+Apache-2.0 — see `LICENSE.md`) with two additions:
 
-## Changes vs. upstream
+1. **Custom eviction policies** — plug in your own algorithm and benchmark it
+   against FIFO / LRU / Optimal.
+2. **ART-Chat-2.5M integration** — build traces from the
+   [alessiotoniolo/ART-Chat-2.5M](https://huggingface.co/datasets/alessiotoniolo/ART-Chat-2.5M)
+   production chatbot trace (2.5M requests, ~18k avg input tokens, high prefix reuse).
 
-- `src/kvcache_sim/policies.py`: new `simulate_custom()` — a policy template
-  with three clearly-marked SCORING hooks (ships as LFU as a working example),
-  registered under the policy name `custom`.
-- `src/kvcache_sim/simulator.py` / `cli.py`: accept `custom` in `--policies`
-  (Python backend only; the bundled C++ core still knows just fifo/lru/optimal).
-- `src/kvcache_sim/resources/`: bundled `models.yaml` + C++ core, which
-  upstream syncs from the blog at package build time (needed to run from a
-  plain checkout).
-- `examples/make_trace.py`: synthetic hot-conversations + scan-pollution trace
-  generator; `tests/test_custom_policy.py`: sanity tests for the patch.
-
-## Quick start
+## Setup
 
 ```bash
-pip install -e .                      # or: PYTHONPATH=src python3 -m kvcache_sim ...
-python3 examples/make_trace.py        # writes trace.jsonl
+pip install -e .        # no dependencies; Python 3.10+
+```
 
+## Getting a trace
+
+`scripts/art_chat_trace.py` streams the dataset's daily JSONL files from
+HuggingFace and strips each record to what the simulator needs
+(`hash_ids`, `input_length`, `block_size: 256`), sorted by timestamp — the
+full 148 GB is never downloaded or stored.
+
+```bash
+# Quick sample: first 20k requests of day 1
+python3 scripts/art_chat_trace.py --days 20260401 --max-requests 20000 -o art_chat_20k.jsonl.gz
+
+# One full day / the whole week
+python3 scripts/art_chat_trace.py --days 20260401 -o art_chat_day1.jsonl.gz
+python3 scripts/art_chat_trace.py --days all -o art_chat_week.jsonl.gz
+```
+
+## Running the simulator
+
+```bash
 kvcache-simulator run \
-  --trace trace.jsonl \
+  --trace art_chat_20k.jsonl.gz \
   --model llama-3.1-8b --kv-precision fp8_int8 \
   --backend python \
   --policies fifo,lru,custom,optimal \
-  --budgets-gib 1,2,4,8,16,32 --no-progress
+  --no-progress
 ```
 
-`kvcache-simulator list-models` shows the model catalog. All upstream options
-(GiB budget sweeps, model/precision accounting, JSON output, real-trace
-formats) work unchanged; see `src/kvcache_sim/` or the upstream README.
+`kvcache-simulator list-models` shows the model catalog. All upstream
+features (GiB budget sweeps, model/precision accounting, `--format json`,
+the fast C++ backend for the built-in policies) work unchanged — but
+`custom` requires `--backend python`, since the bundled C++ core only
+implements fifo/lru/optimal.
 
 ## Writing your own eviction policy
 
@@ -56,9 +68,22 @@ Optimal uses), `plan.parent[node]` (walk toward the root for depth-based
 scores). Everything else — leaf-only eviction, longest-cached-prefix hit
 accounting, warmup and underfilled semantics — is handled for you.
 
-Run `--policies custom` with `--backend python` (the C++ backend will tell
-you if you forget). Test with:
+As shipped, `custom` implements LFU purely as a plumbing example — on
+ART-Chat it loses badly to LRU (7.6% vs 60.9% hit rate at 64 GiB on a 20k
+sample), since conversations keep extending their prefix and pure frequency
+hoards shallow system-prompt blocks. The gap to beat is LRU → Optimal (60.9%
+→ 78.3% on that same sample).
 
 ```bash
-python3 -m unittest discover -s tests
+python3 -m unittest discover -s tests    # includes sanity tests for the patch
 ```
+
+## Changes vs. upstream
+
+- `src/kvcache_sim/policies.py`: added `simulate_custom()` and the `custom`
+  policy name.
+- `src/kvcache_sim/simulator.py` / `cli.py`: accept `custom` in `--policies`
+  (Python backend only).
+- `src/kvcache_sim/resources/`: bundled `models.yaml` + C++ core, which
+  upstream injects at package build time (needed to run from a checkout).
+- `scripts/art_chat_trace.py` and `tests/test_custom_policy.py` are new.
