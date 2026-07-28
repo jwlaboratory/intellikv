@@ -22,6 +22,7 @@ class ExecutionPlan:
     total_measured_tokens: int
     total_input_tokens: int
     average_input_tokens: float
+    request_meta: list[dict | None] | None = None
 
 
 def build_execution_plan(trace: TraceData, warmup_fraction: float = 0.5) -> ExecutionPlan:
@@ -75,4 +76,5 @@ def build_execution_plan(trace: TraceData, warmup_fraction: float = 0.5) -> Exec
         total_measured_tokens=total_measured_tokens,
         total_input_tokens=trace.total_input_tokens,
         average_input_tokens=trace.average_input_tokens,
+        request_meta=trace.request_meta,
     )

@@ -1,0 +1,96 @@
+{
+  "metadata": {
+    "modelId": "llama-3.1-8b",
+    "modelLabel": "Llama 3.1 8B",
+    "precision": "fp8_int8",
+    "precisionLabel": "FP8 / INT8",
+    "indexerPrecision": null,
+    "indexerPrecisionLabel": null,
+    "includeDraftKvCache": false,
+    "blockSize": 256,
+    "bytesPerToken": 65536.0,
+    "bytesPerBlock": 16777216.0,
+    "estimateTokens": 17580,
+    "requestCount": 20000,
+    "eventCount": 1387548,
+    "rawUniqueBlocks": 113278,
+    "uniqueBlocks": 113278,
+    "backend": "python",
+    "warmupFraction": 0.5,
+    "warmupRequests": 10000,
+    "measurementWindow": "last_50_percent_requests",
+    "underfilledBudgetPolicy": "omit_budget_and_larger_points",
+    "speedupBaseline": "1.0x equals no-cache prefill throughput where every prefill input token is computed.",
+    "totalMeasuredTokens": 178620488,
+    "averageInputTokens": 17580.3405,
+    "parseErrors": 0,
+    "skippedRecords": 0
+  },
+  "hitRateCeiling": 0.9299872028118074,
+  "ceiling": {
+    "policy": "ceiling",
+    "cacheBlocks": 113278,
+    "warmupRequests": 10000,
+    "measurementStartRequest": 10000,
+    "measurementMode": "fixed_window",
+    "hitTokens": 166114768,
+    "totalTokens": 178620488,
+    "hitRate": 0.9299872028118074
+  },
+  "points": [
+    {
+      "gib": 16.0,
+      "cacheBlocks": 1024,
+      "results": {
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 1024,
+          "warmupRequests": 10000,
+          "measurementStartRequest": 10000,
+          "measurementMode": "fixed_window",
+          "hitTokens": 34237370,
+          "totalTokens": 178620488,
+          "hitRate": 0.19167661214765017,
+          "idealPrefillSpeedup": 1.2371286233062235
+        }
+      }
+    },
+    {
+      "gib": 64.0,
+      "cacheBlocks": 4096,
+      "results": {
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 4096,
+          "warmupRequests": 10000,
+          "measurementStartRequest": 10000,
+          "measurementMode": "fixed_window",
+          "hitTokens": 108928727,
+          "totalTokens": 178620488,
+          "hitRate": 0.6098333299817208,
+          "idealPrefillSpeedup": 2.563007239837145
+        }
+      }
+    },
+    {
+      "gib": 128.0,
+      "cacheBlocks": 8192,
+      "results": {
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 8192,
+          "warmupRequests": 10000,
+          "measurementStartRequest": 10000,
+          "measurementMode": "fixed_window",
+          "hitTokens": 141364004,
+          "totalTokens": 178620488,
+          "hitRate": 0.7914209930945884,
+          "idealPrefillSpeedup": 4.794346347873299
+        }
+      }
+    }
+  ],
+  "policies": [
+    "custom"
+  ]
+}

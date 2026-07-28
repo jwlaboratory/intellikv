@@ -9,3 +9,4 @@ dist/
 *.egg-info/
 trace.jsonl
 *.jsonl.gz
+*.partial

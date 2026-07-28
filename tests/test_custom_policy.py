@@ -60,5 +60,58 @@ class CustomPolicyTests(unittest.TestCase):
         self.assertNotIn("custom", CPP_POLICIES)
 
 
+def conversation_lines(requests: int = 600) -> list[str]:
+    """Synthetic chat workload with per-request meta.
+
+    Sticky conversations (short think times, many turns) keep extending a
+    shared prefix; one-shot conversations never return. A content-aware
+    policy should learn to protect sticky conversations' blocks.
+    """
+    rng = random.Random(11)
+    lines = []
+    ts = 0
+    sticky: list[dict] = []
+    one_shot = 0
+    for _ in range(requests):
+        ts += rng.randrange(200, 2000)
+        extend = sticky and rng.random() < 0.6
+        if extend:
+            conv = rng.choice(sticky)
+            conv["turns"] += 1
+            conv["blocks"].append(f"c{conv['id']}-{conv['turns']}")
+            ids = list(conv["blocks"])
+            meta = {"ts": ts, "sph": "app-sticky", "nmsg": 1 + 2 * conv["turns"], "out": 30}
+        elif rng.random() < 0.5:
+            conv = {"id": len(sticky), "turns": 1, "blocks": [f"sys-s-{i}" for i in range(2)]}
+            conv["blocks"].append(f"c{conv['id']}-1")
+            sticky.append(conv)
+            if len(sticky) > 12:
+                sticky.pop(0)
+            ids = list(conv["blocks"])
+            meta = {"ts": ts, "sph": "app-sticky", "nmsg": 3, "out": 30}
+        else:
+            one_shot += 1
+            ids = [f"sys-o-{i}" for i in range(2)] + [f"once-{one_shot}-{i}" for i in range(6)]
+            meta = {"ts": ts, "sph": "app-oneshot", "nmsg": 2, "out": 900}
+        lines.append(json.dumps({"block_size": 16, "hash_ids": ids, "input_length": 16 * len(ids), "meta": meta}))
+    return lines
+
+
+class MetaPolicyTests(unittest.TestCase):
+    def test_meta_plumbing(self) -> None:
+        plan = build_execution_plan(parse_trace_lines(conversation_lines(50)))
+        self.assertIsNotNone(plan.request_meta)
+        self.assertEqual(len(plan.request_meta), 50)
+        self.assertIn("sph", plan.request_meta[0])
+
+    def test_custom_beats_lru_on_conversational_workload(self) -> None:
+        plan = build_execution_plan(parse_trace_lines(conversation_lines()))
+        custom = simulate_policy(plan, "custom", 24)
+        lru = simulate_policy(plan, "lru", 24)
+        optimal = simulate_policy(plan, "optimal", 24)
+        self.assertGreater(custom.hitRate, lru.hitRate)
+        self.assertGreaterEqual(optimal.hitRate, custom.hitRate - 1e-9)
+
+
 if __name__ == "__main__":
     unittest.main()

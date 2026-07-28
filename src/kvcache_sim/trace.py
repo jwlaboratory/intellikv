@@ -20,6 +20,7 @@ class TraceData:
     average_input_tokens: float
     parse_errors: int
     skipped_records: int
+    request_meta: list[dict | None] | None = None
 
 
 def block_tokens(input_length: int, block_size: int, index: int, count: int) -> int:
@@ -160,7 +161,8 @@ def parse_trace_lines(
                 invalid_block_tokens += 1
                 continue
 
-        raw_requests.append((parsed_ids, input_length, explicit_block_tokens))
+        meta = record.get("meta")
+        raw_requests.append((parsed_ids, input_length, explicit_block_tokens, meta if isinstance(meta, dict) else None))
         request_count += 1
         raw_event_count += len(parsed_ids)
 
@@ -186,9 +188,11 @@ def parse_trace_lines(
     ids: list[int] = []
     tokens: list[int] = []
     request_starts: list[int] = []
+    request_meta: list[dict | None] = []
     total_input_tokens = 0
-    for parsed_ids, input_length, explicit_block_tokens in raw_requests:
+    for parsed_ids, input_length, explicit_block_tokens, meta in raw_requests:
         request_starts.append(len(ids))
+        request_meta.append(meta)
         for index, int_id in enumerate(parsed_ids):
             tok = explicit_block_tokens[index] if explicit_block_tokens else block_tokens(input_length, selected_block_size, index, len(parsed_ids))
             ids.append(int_id)
@@ -196,6 +200,7 @@ def parse_trace_lines(
             total_input_tokens += tok
 
     request_starts.append(len(ids))
+    has_meta = any(meta is not None for meta in request_meta)
     return TraceData(
         ids=ids,
         tokens=tokens,
@@ -207,6 +212,7 @@ def parse_trace_lines(
         average_input_tokens=total_input_tokens / request_count if request_count else 0.0,
         parse_errors=parse_errors,
         skipped_records=skipped,
+        request_meta=request_meta if has_meta else None,
     )
 
 

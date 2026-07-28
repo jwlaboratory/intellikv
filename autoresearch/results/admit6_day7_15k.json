@@ -1,0 +1,147 @@
+{
+  "metadata": {
+    "modelId": "llama-3.1-8b",
+    "modelLabel": "Llama 3.1 8B",
+    "precision": "fp8_int8",
+    "precisionLabel": "FP8 / INT8",
+    "indexerPrecision": null,
+    "indexerPrecisionLabel": null,
+    "includeDraftKvCache": false,
+    "blockSize": 256,
+    "bytesPerToken": 65536.0,
+    "bytesPerBlock": 16777216.0,
+    "estimateTokens": 17856,
+    "requestCount": 15000,
+    "eventCount": 1055871,
+    "rawUniqueBlocks": 182166,
+    "uniqueBlocks": 182166,
+    "backend": "python",
+    "warmupFraction": 0.5,
+    "warmupRequests": 7500,
+    "measurementWindow": "last_50_percent_requests",
+    "underfilledBudgetPolicy": "omit_budget_and_larger_points",
+    "speedupBaseline": "1.0x equals no-cache prefill throughput where every prefill input token is computed.",
+    "totalMeasuredTokens": 135036260,
+    "averageInputTokens": 17856.673066666666,
+    "parseErrors": 0,
+    "skippedRecords": 0
+  },
+  "hitRateCeiling": 0.8642999813531566,
+  "ceiling": {
+    "policy": "ceiling",
+    "cacheBlocks": 182166,
+    "warmupRequests": 7500,
+    "measurementStartRequest": 7500,
+    "measurementMode": "fixed_window",
+    "hitTokens": 116711837,
+    "totalTokens": 135036260,
+    "hitRate": 0.8642999813531566
+  },
+  "points": [
+    {
+      "gib": 8.0,
+      "cacheBlocks": 512,
+      "results": {
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 512,
+          "warmupRequests": 7500,
+          "measurementStartRequest": 7500,
+          "measurementMode": "fixed_window",
+          "hitTokens": 6560409,
+          "totalTokens": 135036260,
+          "hitRate": 0.04858257330290398,
+          "idealPrefillSpeedup": 1.0510633628727628
+        }
+      }
+    },
+    {
+      "gib": 16.0,
+      "cacheBlocks": 1024,
+      "results": {
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 1024,
+          "warmupRequests": 7500,
+          "measurementStartRequest": 7500,
+          "measurementMode": "fixed_window",
+          "hitTokens": 14247733,
+          "totalTokens": 135036260,
+          "hitRate": 0.10551042364473068,
+          "idealPrefillSpeedup": 1.1179560124944647
+        }
+      }
+    },
+    {
+      "gib": 32.0,
+      "cacheBlocks": 2048,
+      "results": {
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 2048,
+          "warmupRequests": 7500,
+          "measurementStartRequest": 7500,
+          "measurementMode": "fixed_window",
+          "hitTokens": 27074314,
+          "totalTokens": 135036260,
+          "hitRate": 0.2004966221665203,
+          "idealPrefillSpeedup": 1.25077645414061
+        }
+      }
+    },
+    {
+      "gib": 64.0,
+      "cacheBlocks": 4096,
+      "results": {
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 4096,
+          "warmupRequests": 7500,
+          "measurementStartRequest": 7500,
+          "measurementMode": "fixed_window",
+          "hitTokens": 42952033,
+          "totalTokens": 135036260,
+          "hitRate": 0.31807777407342297,
+          "idealPrefillSpeedup": 1.466442890376872
+        }
+      }
+    },
+    {
+      "gib": 128.0,
+      "cacheBlocks": 8192,
+      "results": {
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 8192,
+          "warmupRequests": 7500,
+          "measurementStartRequest": 7500,
+          "measurementMode": "fixed_window",
+          "hitTokens": 61247263,
+          "totalTokens": 135036260,
+          "hitRate": 0.4535616063418818,
+          "idealPrefillSpeedup": 1.8300324640542276
+        }
+      }
+    },
+    {
+      "gib": 256.0,
+      "cacheBlocks": 16384,
+      "results": {
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 16384,
+          "warmupRequests": 7500,
+          "measurementStartRequest": 7500,
+          "measurementMode": "fixed_window",
+          "hitTokens": 87709272,
+          "totalTokens": 135036260,
+          "hitRate": 0.6495238538152641,
+          "idealPrefillSpeedup": 2.8532612301463174
+        }
+      }
+    }
+  ],
+  "policies": [
+    "custom"
+  ]
+}

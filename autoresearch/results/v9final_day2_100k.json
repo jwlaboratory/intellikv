@@ -1,0 +1,281 @@
+{
+  "metadata": {
+    "modelId": "llama-3.1-8b",
+    "modelLabel": "Llama 3.1 8B",
+    "precision": "fp8_int8",
+    "precisionLabel": "FP8 / INT8",
+    "indexerPrecision": null,
+    "indexerPrecisionLabel": null,
+    "includeDraftKvCache": false,
+    "blockSize": 256,
+    "bytesPerToken": 65536.0,
+    "bytesPerBlock": 16777216.0,
+    "estimateTokens": 16470,
+    "requestCount": 74745,
+    "eventCount": 4862279,
+    "rawUniqueBlocks": 436432,
+    "uniqueBlocks": 436432,
+    "backend": "python",
+    "warmupFraction": 0.5,
+    "warmupRequests": 37372,
+    "measurementWindow": "last_50_percent_requests",
+    "underfilledBudgetPolicy": "omit_budget_and_larger_points",
+    "speedupBaseline": "1.0x equals no-cache prefill throughput where every prefill input token is computed.",
+    "totalMeasuredTokens": 648293488,
+    "averageInputTokens": 16470.510937186435,
+    "parseErrors": 0,
+    "skippedRecords": 0
+  },
+  "hitRateCeiling": 0.9206181290533031,
+  "ceiling": {
+    "policy": "ceiling",
+    "cacheBlocks": 436432,
+    "warmupRequests": 37372,
+    "measurementStartRequest": 37372,
+    "measurementMode": "fixed_window",
+    "hitTokens": 596830738,
+    "totalTokens": 648293488,
+    "hitRate": 0.9206181290533031
+  },
+  "points": [
+    {
+      "gib": 8.0,
+      "cacheBlocks": 512,
+      "results": {
+        "lru": {
+          "policy": "lru",
+          "cacheBlocks": 512,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 83037111,
+          "totalTokens": 648293488,
+          "hitRate": 0.12808567807178098,
+          "idealPrefillSpeedup": 1.1469016792711035
+        },
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 512,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 114300368,
+          "totalTokens": 648293488,
+          "hitRate": 0.17630960377624524,
+          "idealPrefillSpeedup": 1.2140483907358208
+        },
+        "optimal": {
+          "policy": "optimal",
+          "cacheBlocks": 512,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 230036210,
+          "totalTokens": 648293488,
+          "hitRate": 0.3548334423498019,
+          "idealPrefillSpeedup": 1.549987345348716
+        }
+      }
+    },
+    {
+      "gib": 16.0,
+      "cacheBlocks": 1024,
+      "results": {
+        "lru": {
+          "policy": "lru",
+          "cacheBlocks": 1024,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 162572387,
+          "totalTokens": 648293488,
+          "hitRate": 0.25076973625254123,
+          "idealPrefillSpeedup": 1.334703159210701
+        },
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 1024,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 194999232,
+          "totalTokens": 648293488,
+          "hitRate": 0.30078850953998787,
+          "idealPrefillSpeedup": 1.4301824464327648
+        },
+        "optimal": {
+          "policy": "optimal",
+          "cacheBlocks": 1024,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 326620909,
+          "totalTokens": 648293488,
+          "hitRate": 0.5038164273524216,
+          "idealPrefillSpeedup": 2.015383126579776
+        }
+      }
+    },
+    {
+      "gib": 32.0,
+      "cacheBlocks": 2048,
+      "results": {
+        "lru": {
+          "policy": "lru",
+          "cacheBlocks": 2048,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 280232198,
+          "totalTokens": 648293488,
+          "hitRate": 0.4322613186575769,
+          "idealPrefillSpeedup": 1.7613737320759812
+        },
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 2048,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 296201919,
+          "totalTokens": 648293488,
+          "hitRate": 0.4568947929953602,
+          "idealPrefillSpeedup": 1.8412638787155964
+        },
+        "optimal": {
+          "policy": "optimal",
+          "cacheBlocks": 2048,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 423042602,
+          "totalTokens": 648293488,
+          "hitRate": 0.6525479737658572,
+          "idealPrefillSpeedup": 2.878095174284909
+        }
+      }
+    },
+    {
+      "gib": 64.0,
+      "cacheBlocks": 4096,
+      "results": {
+        "lru": {
+          "policy": "lru",
+          "cacheBlocks": 4096,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 397331092,
+          "totalTokens": 648293488,
+          "hitRate": 0.6128876802785346,
+          "idealPrefillSpeedup": 2.5832295926916475
+        },
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 4096,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 404863955,
+          "totalTokens": 648293488,
+          "hitRate": 0.6245072062176876,
+          "idealPrefillSpeedup": 2.6631669543563556
+        },
+        "optimal": {
+          "policy": "optimal",
+          "cacheBlocks": 4096,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 504615749,
+          "totalTokens": 648293488,
+          "hitRate": 0.77837547089475,
+          "idealPrefillSpeedup": 4.5121359266378755
+        }
+      }
+    },
+    {
+      "gib": 128.0,
+      "cacheBlocks": 8192,
+      "results": {
+        "lru": {
+          "policy": "lru",
+          "cacheBlocks": 8192,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 495412410,
+          "totalTokens": 648293488,
+          "hitRate": 0.7641792169289845,
+          "idealPrefillSpeedup": 4.240508351203542
+        },
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 8192,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 500430194,
+          "totalTokens": 648293488,
+          "hitRate": 0.7719192052103414,
+          "idealPrefillSpeedup": 4.384411238667522
+        },
+        "optimal": {
+          "policy": "optimal",
+          "cacheBlocks": 8192,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 554685435,
+          "totalTokens": 648293488,
+          "hitRate": 0.8556085249463434,
+          "idealPrefillSpeedup": 6.925616624031267
+        }
+      }
+    },
+    {
+      "gib": 256.0,
+      "cacheBlocks": 16384,
+      "results": {
+        "lru": {
+          "policy": "lru",
+          "cacheBlocks": 16384,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 544496141,
+          "totalTokens": 648293488,
+          "hitRate": 0.8398914242988663,
+          "idealPrefillSpeedup": 6.2457616378191245
+        },
+        "custom": {
+          "policy": "custom",
+          "cacheBlocks": 16384,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 547331817,
+          "totalTokens": 648293488,
+          "hitRate": 0.8442654864365998,
+          "idealPrefillSpeedup": 6.4211842135616
+        },
+        "optimal": {
+          "policy": "optimal",
+          "cacheBlocks": 16384,
+          "warmupRequests": 37372,
+          "measurementStartRequest": 37372,
+          "measurementMode": "fixed_window",
+          "hitTokens": 578693748,
+          "totalTokens": 648293488,
+          "hitRate": 0.8926416178963685,
+          "idealPrefillSpeedup": 9.314596405101511
+        }
+      }
+    }
+  ],
+  "policies": [
+    "lru",
+    "custom",
+    "optimal"
+  ]
+}
